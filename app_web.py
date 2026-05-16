@@ -15,8 +15,9 @@ st.set_page_config(page_title="Agente UTI - Auditoría", page_icon="🎓", layou
 st.title("🎓 Asistente Virtual de Titulación - UTI")
 st.markdown("---")
 
-# 1. CONEXIÓN AL MOTOR DE IA
-API_KEY = "AIzaSyC4eTyMAdtmlKU9Q9RPsRZWQIhYdAbVErU"
+# 1. CONEXIÓN AL MOTOR DE IA (Configuración Segura para Producción)
+# Localmente buscará tu variable de entorno, en la nube leerá los Secrets de Streamlit
+API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyCzsGwOrqdsAd1zQTivXm2sbyCF-3KqssY")
 client = genai.Client(api_key=API_KEY)
 
 # 2. CONFIGURACIÓN DE LAS FUENTES DE INFORMACIÓN (Múltiples Documentos de la Nube)
