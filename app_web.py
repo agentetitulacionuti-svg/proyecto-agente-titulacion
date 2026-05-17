@@ -56,7 +56,7 @@ pdf_estudiante = st.file_uploader("Carga tu documento aquí (Opcional)", type=["
 # Caja de texto para ingresar la consulta académica
 consulta_alumno = st.text_input("Escribe tu consulta académica sobre el proceso:")
 
-# Botón operativo para ejecutar el flujo continuo
+# Botón operativo para ejecutar el flujo continuo con estructura Poka-Yoke normalizada
 if st.button("Ejecutar Auditoría Digital"):
     if not consulta_alumno:
         st.warning("⚠️ Por favor, ingresa una pregunta para iniciar el análisis.")
@@ -65,18 +65,6 @@ if st.button("Ejecutar Auditoría Digital"):
     else:
         with st.spinner("Analizando documentos y normativas institucionales con Gemini 2.5 Flash..."):
             
-            # Inicializamos el paquete de envío con las normativas cargadas en memoria
-            paquete_envio = list(base_conocimiento_archivos)
-            
-            # Poka-Yoke Avanzado: Procesamiento seguro de los bytes del PDF del alumno
-            if pdf_estudiante is not None:
-                bytes_data = pdf_estudiante.read()
-                documento_en_linea = types.Part.from_bytes(
-                    data=bytes_data,
-                    mime_type="application/pdf"
-                )
-                paquete_envio.append(documento_en_linea)
-
             # Ingeniería de Prompt Estricta (Límites de operación de la IA)
             prompt_maestro = f"""
             Actúas como el Agente Automatizado de Auditoría Académica de la Facultad de Ingenierías de la UTI.
@@ -92,6 +80,23 @@ if st.button("Ejecutar Auditoría Digital"):
             Consulta del estudiante a procesar: {consulta_alumno}
             """
             
+            # NORMALIZACIÓN: Construcción limpia del contenedor secuencial para la API
+            paquete_envio = []
+            
+            # 1. Agregamos las partes binarias de los reglamentos institucionales estables
+            for doc in base_conocimiento_archivos:
+                paquete_envio.append(doc)
+                
+            # 2. Si el alumno adjunta una carga, extraemos sus bytes puros en una nueva Part
+            if pdf_estudiante is not None:
+                bytes_data = pdf_estudiante.read()
+                documento_en_linea = types.Part.from_bytes(
+                    data=bytes_data,
+                    mime_type="application/pdf"
+                )
+                paquete_envio.append(documento_en_linea)
+            
+            # 3. Consolidamos el Prompt de control operativo al final de la estructura
             paquete_envio.append(prompt_maestro)
 
             # Ejecución en el modelo de última generación
