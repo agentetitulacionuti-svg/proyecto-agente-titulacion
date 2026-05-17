@@ -1,7 +1,7 @@
 # =====================================================================
 # INTERFAZ WEB DEL AGENTE DE AUDITORÍA ACADÉMICA - INDOAMÉRICA
 # Desarrollado por: Alejandro Tituaña
-# Enfoque: Poka-Yoke Digital / Sanitización de Datos e Interfaz Streamlit
+# Enfoque: Poka-Yoke Digital / Conexión a Base de Datos en la Nube
 # =====================================================================
 
 import streamlit as st
@@ -16,23 +16,35 @@ st.title("🎓 Asistente Virtual de Titulación - UTI")
 st.markdown("---")
 
 # 1. CONEXIÓN AL MOTOR DE IA (Configuración Segura para Producción)
-# Localmente buscará tu variable de entorno, en la nube leerá los Secrets de Streamlit
-API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyCzsGwOrqdsAd1zQTivXm2sbyCF-3KqssY")
+# Poka-Yoke: Eliminamos la API Key fija expuesta para evitar bloqueos del servidor
+API_KEY = os.environ.get("GEMINI_API_KEY")
+
+if not API_KEY:
+    st.error("🔑 Error: No se ha detectado la GEMINI_API_KEY en las variables de entorno o Secrets de Streamlit.")
+    st.stop()
+
 client = genai.Client(api_key=API_KEY)
 
-# 2. CONFIGURACIÓN DE LAS FUENTES DE INFORMACIÓN (Múltiples Documentos de la Nube)
+# 2. CONFIGURACIÓN DE LAS FUENTES DE INFORMACIÓN (Base de Datos en la Nube / Drive)
+# Para máxima eficiencia en Streamlit Cloud, cargamos los documentos normativos 
+# de tu base de datos mediante la lectura segura de bytes en memoria.
 lista_instructivos = [
-    "../PDF legal - pagina indoamerica/Instructivos/INSTRU-ORG-APREN-LINEA-DIST-SEMI.pdf",
-    "../PDF legal - pagina indoamerica/Instructivos/Instructivo-para-subida-de-titulos-1.pdf"
+    "instructivoparalaorganizaciondelosaprendizajes.pdf",
+    "Instructivo-para-subida-de-titulos-1.pdf"
 ]
 
 base_conocimiento_archivos = []
 
-# Fase de Retrieval fija (Carga de normativas de la universidad)
-for ruta in lista_instructivos:
-    if os.path.exists(ruta):
-        archivo_subido = client.files.upload(file=ruta)
-        base_conocimiento_archivos.append(archivo_subido)
+# Fase de Retrieval en memoria: Evita buscar rutas absolutas de carpetas locales
+for nombre_archivo in lista_instructivos:
+    if os.path.exists(nombre_archivo):
+        with open(nombre_archivo, "rb") as f:
+            bytes_archivo = f.read()
+            documento_normativo = types.Part.from_bytes(
+                data=bytes_archivo,
+                mime_type="application/pdf"
+            )
+            base_conocimiento_archivos.append(documento_normativo)
 
 # 3. INTERFAZ DE USUARIO (Frontend tipo Chat para el Estudiante)
 st.subheader("📋 Módulo de Consulta y Auditoría de Documentos")
@@ -49,14 +61,14 @@ if st.button("Ejecutar Auditoría Digital"):
     if not consulta_alumno:
         st.warning("⚠️ Por favor, ingresa una pregunta para iniciar el análisis.")
     elif len(base_conocimiento_archivos) == 0:
-        st.error("❌ Error: No se encontraron los archivos normativos en las rutas especificadas.")
+        st.error("❌ Error: No se encontraron los archivos normativos base en la raíz del proyecto. Asegúrate de subirlos a tu repositorio.")
     else:
         with st.spinner("Analizando documentos y normativas institucionales con Gemini 2.5 Flash..."):
             
-            # Inicializamos el paquete de envío con las normativas institucionales fijas
+            # Inicializamos el paquete de envío con las normativas cargadas en memoria
             paquete_envio = list(base_conocimiento_archivos)
             
-            # Poka-Yoke Avanzado: Evitamos la API de archivos para el alumno y enviamos los bytes puros codificados de forma segura
+            # Poka-Yoke Avanzado: Procesamiento seguro de los bytes del PDF del alumno
             if pdf_estudiante is not None:
                 bytes_data = pdf_estudiante.read()
                 documento_en_linea = types.Part.from_bytes(
