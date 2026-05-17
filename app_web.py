@@ -1,7 +1,7 @@
 # =====================================================================
 # INTERFAZ WEB DEL AGENTE DE AUDITORÍA ACADÉMICA - INDOAMÉRICA
 # Desarrollado por: Alejandro Tituaña
-# Enfoque: Poka-Yoke Digital / Conexión a Base de Datos en la Nube
+# Enfoque: Poka-Yoke Digital / Optimización de API de Archivos Google
 # =====================================================================
 
 import streamlit as st
@@ -16,7 +16,6 @@ st.title("🎓 Asistente Virtual de Titulación - UTI")
 st.markdown("---")
 
 # 1. CONEXIÓN AL MOTOR DE IA (Configuración Segura para Producción)
-# Poka-Yoke: Eliminamos la API Key fija expuesta para evitar bloqueos del servidor
 API_KEY = os.environ.get("GEMINI_API_KEY")
 
 if not API_KEY:
@@ -25,26 +24,25 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
-# 2. CONFIGURACIÓN DE LAS FUENTES DE INFORMACIÓN (Base de Datos en la Nube / Drive)
-# Para máxima eficiencia en Streamlit Cloud, cargamos los documentos normativos 
-# de tu base de datos mediante la lectura segura de bytes en memoria.
+# 2. CONFIGURACIÓN DE LAS FUENTES DE INFORMACIÓN (File API de Google)
 lista_instructivos = [
     "instructivoparalaorganizaciondelosaprendizajes.pdf",
     "Instructivo-para-subida-de-titulos-1.pdf"
 ]
 
-base_conocimiento_archivos = []
+# Usamos st.cache_resource para subir los archivos normativos a Google UNA SOLA VEZ
+# Esto evita subir los mismos archivos en cada clic, optimizando el proceso drásticamente.
+@st.cache_resource
+def cargar_base_conocimiento():
+    archivos_google = []
+    for nombre_archivo in lista_instructivos:
+        if os.path.exists(nombre_archivo):
+            # Subimos el archivo usando el File API oficial de Google GenAI
+            archivo_subido = client.files.upload(file=nombre_archivo)
+            archivos_google.append(archivo_subido)
+    return archivos_google
 
-# Fase de Retrieval en memoria: Evita buscar rutas absolutas de carpetas locales
-for nombre_archivo in lista_instructivos:
-    if os.path.exists(nombre_archivo):
-        with open(nombre_archivo, "rb") as f:
-            bytes_archivo = f.read()
-            documento_normativo = types.Part.from_bytes(
-                data=bytes_archivo,
-                mime_type="application/pdf"
-            )
-            base_conocimiento_archivos.append(documento_normativo)
+base_conocimiento_archivos = cargar_base_conocimiento()
 
 # 3. INTERFAZ DE USUARIO (Frontend tipo Chat para el Estudiante)
 st.subheader("📋 Módulo de Consulta y Auditoría de Documentos")
@@ -56,7 +54,7 @@ pdf_estudiante = st.file_uploader("Carga tu documento aquí (Opcional)", type=["
 # Caja de texto para ingresar la consulta académica
 consulta_alumno = st.text_input("Escribe tu consulta académica sobre el proceso:")
 
-# Botón operativo para ejecutar el flujo continuo con estructura Poka-Yoke normalizada
+# Botón operativo para ejecutar el flujo continuo con estructura normalizada de URIs
 if st.button("Ejecutar Auditoría Digital"):
     if not consulta_alumno:
         st.warning("⚠️ Por favor, ingresa una pregunta para iniciar el análisis.")
@@ -80,14 +78,14 @@ if st.button("Ejecutar Auditoría Digital"):
             Consulta del estudiante a procesar: {consulta_alumno}
             """
             
-            # NORMALIZACIÓN: Construcción limpia del contenedor secuencial para la API
+            # Construcción limpia del contenedor de contenidos
             paquete_envio = []
             
-            # 1. Agregamos las partes binarias de los reglamentos institucionales estables
+            # 1. Agregamos las referencias ligeras (URIs) de los reglamentos institucionales estables
             for doc in base_conocimiento_archivos:
                 paquete_envio.append(doc)
                 
-            # 2. Si el alumno adjunta una carga, extraemos sus bytes puros en una nueva Part
+            # 2. Si el alumno adjunta una carga (al ser un archivo dinámico y pequeño, se puede pasar en bytes)
             if pdf_estudiante is not None:
                 bytes_data = pdf_estudiante.read()
                 documento_en_linea = types.Part.from_bytes(
@@ -96,16 +94,20 @@ if st.button("Ejecutar Auditoría Digital"):
                 )
                 paquete_envio.append(documento_en_linea)
             
-            # 3. Consolidamos el Prompt de control operativo al final de la estructura
+            # 3. Consolidamos el Prompt de control operativo al final
             paquete_envio.append(prompt_maestro)
 
-            # Ejecución en el modelo de última generación
-            respuesta = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=paquete_envio
-            )
+            try:
+                # Ejecución en el modelo de última generación
+                respuesta = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=paquete_envio
+                )
 
-            # Despacho visual del veredicto directamente en la pantalla web
-            st.markdown("### 📝 Veredicto del Agente UTI:")
-            st.info(respuesta.text)
-            st.success("✓ Proceso de auditoría digital completado sin defectos de información.")
+                # Despacho visual del veredicto directamente en la pantalla web
+                st.markdown("### 📝 Veredicto del Agente UTI:")
+                st.info(respuesta.text)
+                st.success("✓ Proceso de auditoría digital completado sin defectos de información.")
+                
+            except Exception as e:
+                st.error(f"❌ Ocurrió un error al procesar la solicitud con la API: {e}")
