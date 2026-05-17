@@ -1,13 +1,14 @@
 # =====================================================================
 # INTERFAZ WEB DEL AGENTE DE AUDITORÍA ACADÉMICA - INDOAMÉRICA
 # Desarrollado por: Alejandro Tituaña
-# Enfoque: Poka-Yoke Digital / Optimización de API de Archivos Google
+# Enfoque: Poka-Yoke Avanzado / Extracción de Texto Estable en Memoria
 # =====================================================================
 
 import streamlit as st
 from google import genai
 from google.genai import types
 import os
+from pypdf import PdfReader
 
 # Configuración del Layout visual de la página web institucional
 st.set_page_config(page_title="Agente UTI - Auditoría", page_icon="🎓", layout="centered")
@@ -24,25 +25,29 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
-# 2. CONFIGURACIÓN DE LAS FUENTES DE INFORMACIÓN (File API de Google)
+# 2. CONFIGURACIÓN DE LAS FUENTES DE INFORMACIÓN (Extracción Estonómica de Texto)
 lista_instructivos = [
     "instructivoparalaorganizaciondelosaprendizajes.pdf",
     "Instructivo-para-subida-de-titulos-1.pdf"
 ]
 
-# Usamos st.cache_resource para subir los archivos normativos a Google UNA SOLA VEZ
-# Esto evita subir los mismos archivos en cada clic, optimizando el proceso drásticamente.
-@st.cache_resource
-def cargar_base_conocimiento():
-    archivos_google = []
+# Optimizamos el almacenamiento leyendo el texto puro para evitar saturar la API con archivos binarios
+@st.cache_data
+def extraer_texto_base_conocimiento():
+    texto_consolidado = ""
     for nombre_archivo in lista_instructivos:
         if os.path.exists(nombre_archivo):
-            # Subimos el archivo usando el File API oficial de Google GenAI
-            archivo_subido = client.files.upload(file=nombre_archivo)
-            archivos_google.append(archivo_subido)
-    return archivos_google
+            try:
+                reader = PdfReader(nombre_archivo)
+                texto_consolidado += f"\n\n--- INICIO DOCUMENTO: {nombre_archivo} ---\n"
+                for page in reader.pages:
+                    texto_consolidado += page.extract_text() + "\n"
+                texto_consolidado += f"--- FIN DOCUMENTO: {nombre_archivo} ---\n"
+            except Exception as e:
+                st.error(f"⚠️ Error al leer {nombre_archivo}: {e}")
+    return texto_consolidado
 
-base_conocimiento_archivos = cargar_base_conocimiento()
+base_conocimiento_texto = extraer_texto_base_conocimiento()
 
 # 3. INTERFAZ DE USUARIO (Frontend tipo Chat para el Estudiante)
 st.subheader("📋 Módulo de Consulta y Auditoría de Documentos")
@@ -54,38 +59,38 @@ pdf_estudiante = st.file_uploader("Carga tu documento aquí (Opcional)", type=["
 # Caja de texto para ingresar la consulta académica
 consulta_alumno = st.text_input("Escribe tu consulta académica sobre el proceso:")
 
-# Botón operativo para ejecutar el flujo continuo con estructura normalizada de URIs
+# Botón operativo para ejecutar el flujo continuo sin fallas de API
 if st.button("Ejecutar Auditoría Digital"):
     if not consulta_alumno:
         st.warning("⚠️ Por favor, ingresa una pregunta para iniciar el análisis.")
-    elif len(base_conocimiento_archivos) == 0:
-        st.error("❌ Error: No se encontraron los archivos normativos base en la raíz del proyecto. Asegúrate de subirlos a tu repositorio.")
+    elif not base_conocimiento_texto:
+        st.error("❌ Error: No se pudo extraer información de los archivos normativos base. Verifica que estén en la raíz del proyecto.")
     else:
         with st.spinner("Analizando documentos y normativas institucionales con Gemini 2.5 Flash..."):
             
             # Ingeniería de Prompt Estricta (Límites de operación de la IA)
             prompt_maestro = f"""
             Actúas como el Agente Automatizado de Auditoría Académica de la Facultad de Ingenierías de la UTI.
-            Tu objetivo es responder a la consulta del estudiante utilizando EXCLUSIVAMENTE la información
-            de los documentos normativos provistos y, si existe, el documento cargado por el estudiante.
+            Tu objetivo es responder a la consulta del estudiante utilizando EXCLUSIVAMENTE el texto de los
+            documentos normativos de la base de conocimiento provista y, si existe, el documento cargado por el estudiante.
+
+            === BASE DE CONOCIMIENTO NORMATIVA INSTITUCIONAL ===
+            {base_conocimiento_texto}
+            ====================================================
 
             Reglas operativas estrictas:
-            1. Si el estudiante pregunta algo relacionado a su documento adjunto, analízalo a fondo y emite un veredicto basado en las reglas del reglamento.
+            1. Si el estudiante pregunta algo relacionado a su documento adjunto, analízalo a fondo y emite un veredicto basado en las reglas del reglamento institucional expuesto arriba.
             2. Si la respuesta exacta se encuentra en los textos, redacta los pasos de forma clara, ordenando los puntos usando viñetas y cita el nombre del instructivo o documento correspondiente.
-            3. Si la información NO está explícita, responde exactamente: "La información solicitada no consta en los instructivos digitales. Por favor, acérquese a la ventanilla de Secretaría."
+            3. Si la información NO está explícita en la Base de Conocimiento, responde exactamente: "La información solicitada no consta en los instructivos digitales. Por favor, acérquese a la ventanilla de Secretaría."
             4. No asumas, no inventes ni utilices conocimiento externo bajo ninguna circunstancia.
 
             Consulta del estudiante a procesar: {consulta_alumno}
             """
             
-            # Construcción limpia del contenedor de contenidos
+            # Construcción del contenedor de contenidos
             paquete_envio = []
-            
-            # 1. Agregamos las referencias ligeras (URIs) de los reglamentos institucionales estables
-            for doc in base_conocimiento_archivos:
-                paquete_envio.append(doc)
                 
-            # 2. Si el alumno adjunta una carga (al ser un archivo dinámico y pequeño, se puede pasar en bytes)
+            # Si el alumno adjunta una carga, extraemos sus bytes puros en una Part
             if pdf_estudiante is not None:
                 bytes_data = pdf_estudiante.read()
                 documento_en_linea = types.Part.from_bytes(
@@ -94,7 +99,7 @@ if st.button("Ejecutar Auditoría Digital"):
                 )
                 paquete_envio.append(documento_en_linea)
             
-            # 3. Consolidamos el Prompt de control operativo al final
+            # Consolidamos el Prompt maestro que ya incluye todo el texto normativo indexado
             paquete_envio.append(prompt_maestro)
 
             try:
