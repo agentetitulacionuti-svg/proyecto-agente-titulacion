@@ -17,7 +17,7 @@ st.write("Motor de IA optimizado con Groq Cloud para consultas ilimitadas y flui
 st.markdown("---")
 
 # 1. CONEXIÓN AL MOTOR DE GROQ
-# Debes guardar tu llave en los Secrets de Streamlit con el nombre GROQ_API_KEY
+# Dejamos el código limpio de contraseñas. El script buscará la llave en la nube.
 API_KEY = os.environ.get("GROQ_API_KEY")
 if not API_KEY:
     st.error("🔑 Error: No se ha detectado la GROQ_API_KEY en los Secrets de Streamlit.")
