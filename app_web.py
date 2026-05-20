@@ -1,7 +1,7 @@
 # =====================================================================
 # INTERFAZ WEB DEL AGENTE DE AUDITORÍA ACADÉMICA - INDOAMÉRICA
 # Desarrollado por: Alejandro Tituaña
-# Migrado a: GROQ CLOUD (Plan Gratuito de Alta Disponibilidad)
+# Optimización: Control Estricto de TPM (Tokens per Minute) para Groq
 # =====================================================================
 
 import streamlit as st
@@ -10,21 +10,20 @@ import os
 from pypdf import PdfReader
 
 # Configuración visual de la plataforma
-st.set_page_config(page_title="Agente UTI - Groq", page_icon="🎓", layout="centered")
+st.set_page_config(page_title="Agente UTI - Alta Disponibilidad", page_icon="🎓", layout="centered")
 
 st.title("🎓 Asistente Virtual de Titulación - UTI")
-st.write("Motor de IA optimizado con Groq Cloud para consultas ilimitadas y fluidas.")
+st.write("Dime tu duda académica y el sistema localizará automáticamente el reglamento correcto.")
 st.markdown("---")
 
 # 1. CONEXIÓN AL MOTOR DE GROQ
-# Dejamos el código limpio de contraseñas. El script buscará la llave en la nube.
 API_KEY = os.environ.get("GROQ_API_KEY")
 if not API_KEY:
     st.error("🔑 Error: No se ha detectado la GROQ_API_KEY en los Secrets de Streamlit.")
     st.stop()
 
 client = Groq(api_key=API_KEY)
-MODELO_IA = "llama-3.3-70b-versatile" # El modelo más potente y estable de Groq
+MODELO_IA = "llama-3.3-70b-versatile"
 
 # 2. ESCANEO GLOBAL DE LA BODEGA DIGITAL
 DIRECTORIO_RAIZ = "documentos_uti"
@@ -37,7 +36,7 @@ if os.path.exists(DIRECTORIO_RAIZ):
                 ruta_completa = os.path.join(root, file)
                 mapa_archivos[file] = ruta_completa
 
-# 3. INTERFAZ DE USUARIO
+# 3. INTERFAZ DE USUARIO SIMPLE
 pdf_estudiante = st.file_uploader("Carga tu documento de prueba aquí (Opcional)", type=["pdf"])
 consulta_alumno = st.text_input("¿Qué deseas consultar sobre tu proceso de titulación o normativas?")
 
@@ -45,52 +44,63 @@ if st.button("Ejecutar Consulta Inteligente"):
     if not consulta_alumno:
         st.warning("⚠️ Por favor, ingresa una pregunta para iniciar el análisis.")
     elif not mapa_archivos:
-        st.error("❌ Error: La bodega 'documentos_uti' está vacía o no tiene PDFs.")
+        st.error("❌ Error: La bodega 'documentos_uti' está vacía o no contiene archivos PDF.")
     else:
-        with st.spinner("Localizando documentos con el motor LPU de Groq..."):
+        with st.spinner("Localizando y procesando el documento idóneo en la base de datos..."):
             
-            # --- PASO 1: ENRUTAMIENTO INTELIGENTE ---
+            # --- PASO 1: ENRUTAMIENTO INTELIGENTE (Lista de archivos limpia) ---
             lista_nombres_archivos = "\n".join(mapa_archivos.keys())
             
             prompt_enrutador = f"""
-            Eres el clasificador de la UTI. Lee la lista de PDFs disponibles y determina cuál o cuáles contienen la respuesta a la consulta.
+            Eres el clasificador de la UTI. Lee la lista de PDFs y determina cuál contiene la respuesta a la consulta.
             LISTA:
             {lista_nombres_archivos}
             
             CONSULTA: "{consulta_alumno}"
-            Regla: Devuelve ÚNICAMENTE los nombres de los archivos seleccionados, uno por línea. No agregues texto extra. Si ninguno aplica, responde "NINGUNO".
+            Regla: Devuelve ÚNICAMENTE el nombre del archivo principal que tenga la respuesta exacta. Solo una línea, nada más.
             """
             
             try:
-                # Consulta al enrutador usando la sintaxis oficial de Groq
                 seleccion_enrutador = client.chat.completions.create(
                     model=MODELO_IA,
                     messages=[{"role": "user", "content": prompt_enrutador}],
                     temperature=0.0
                 )
                 
-                respuesta_enrutador = seleccion_enrutador.choices[0].message.content
+                respuesta_enrutador = seleccion_enrutador.choices[0].message.content.strip()
+                
+                # Buscamos si el archivo devuelto es válido
                 archivos_seleccionados = [linea.strip() for linea in respuesta_enrutador.split("\n") if linea.strip() in mapa_archivos]
                 
+                # Si el enrutador falló o eligió demasiados, forzamos a tomar solo el primero más importante
                 if not archivos_seleccionados:
-                    archivos_seleccionados = list(mapa_archivos.keys())[:3] # Fallback
+                    archivos_seleccionados = [list(mapa_archivos.keys())[:1][0]]
+                else:
+                    archivos_seleccionados = [archivos_seleccionados[0]] # Poka-Yoke: Tomamos estrictamente SOLO EL MEJOR archivo para no saturar los tokens
 
-                # --- PASO 2: EXTRACCIÓN DEL TEXTO ---
+                # --- PASO 2: EXTRACCIÓN LIMITADA DE TEXTO ---
                 texto_base_reducido = ""
-                for archivo_nombre in archivos_seleccionados:
-                    ruta_real = mapa_archivos[archivo_nombre]
-                    try:
-                        reader = PdfReader(ruta_real)
-                        texto_base_reducido += f"\n\n--- INICIO: {archivo_nombre} ---\n"
-                        for page in reader.pages:
-                            texto_base_reducido += page.extract_text() + "\n"
-                    except:
-                        continue
-
-                # --- PASO 3: RESPUESTA FINAL ---
-                st.caption(f"🔍 *Documentos analizados críticamente:* {', '.join(archivos_seleccionados)}")
+                archivo_nombre = archivos_seleccionados[0]
+                ruta_real = mapa_archivos[archivo_nombre]
                 
-                # Extraemos también el PDF del alumno si existe para mandarlo como texto plano
+                try:
+                    reader = PdfReader(ruta_real)
+                    texto_base_reducido += f"\n\n--- INICIO: {archivo_nombre} ---\n"
+                    
+                    # Filtro de seguridad: Si el PDF es gigantesco (más de 25 páginas), solo leemos las primeras 25
+                    # para mantener el envío por debajo del límite de tokens por minuto (TPM)
+                    max_paginas = min(len(reader.pages), 25)
+                    for i in range(max_paginas):
+                        texto_base_reducido += reader.pages[i].extract_text() + "\n"
+                        
+                    if len(reader.pages) > 25:
+                        texto_base_reducido += "\n[Texto truncado por alta extensión para optimización del sistema]\n"
+                except:
+                    st.error(f"⚠️ Error al abrir el archivo físico: {archivo_nombre}")
+
+                # --- PASO 3: RESPUESTA FINAL AL ESTUDIANTE ---
+                st.caption(f"🔍 *Documento seleccionado estratégicamente (Filtro TPM Activo):* {archivo_nombre}")
+                
                 texto_alumno = ""
                 if pdf_estudiante is not None:
                     try:
@@ -98,13 +108,13 @@ if st.button("Ejecutar Consulta Inteligente"):
                         for page in reader_alumno.pages:
                             texto_alumno += page.extract_text() + "\n"
                     except:
-                        st.warning("⚠️ No se pudo extraer el texto de tu PDF adjunto.")
+                        pass
 
                 prompt_maestro = f"""
                 Actúas como el Agente Automatizado de Auditoría Académica de la Facultad de Ingenierías de la UTI.
                 Responde con total precisión usando EXCLUSIVAMENTE el texto provisto.
 
-                === BASE DE CONOCIMIENTO INSTITUCONAL ===
+                === BASE DE CONOCIMIENTO INSTITUCIONAL ===
                 {texto_base_reducido}
                 
                 === DOCUMENTO ADJUNTO DEL ESTUDIANTE ===
@@ -112,7 +122,7 @@ if st.button("Ejecutar Consulta Inteligente"):
                 ====================================
 
                 Reglas operativas estrictas:
-                1. Responde de forma clara usando viñetas y cita explícitamente el nombre del archivo normativo.
+                1. Responde de forma clara usando viñetas y cita el documento: {archivo_nombre}.
                 2. Si el texto no contiene la respuesta exacta, contesta: "La información solicitada no consta en los instructivos digitales. Por favor, acérquese a la ventanilla de Secretaría."
                 3. No inventes datos.
 
@@ -125,9 +135,9 @@ if st.button("Ejecutar Consulta Inteligente"):
                     temperature=0.2
                 )
                 
-                st.markdown("### 📝 Veredicto del Agente UTI (Groq):")
+                st.markdown("### 📝 Veredicto del Agente UTI:")
                 st.info(respuesta_final.choices[0].message.content)
-                st.success("✓ Búsqueda procesada sin límites de cuota diarios.")
+                st.success("✓ Búsqueda procesada con éxito y balanceo de carga completado.")
 
             except Exception as e:
                 st.error(f"❌ Error operativo en el servidor de Groq: {e}")
