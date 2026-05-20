@@ -25,17 +25,23 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
-# 2. CONFIGURACIÓN DE LAS FUENTES DE INFORMACIÓN (Extracción Estonómica de Texto)
-lista_instructivos = [
-    "instructivoparalaorganizaciondelosaprendizajes.pdf",
-    "Instructivo-para-subida-de-titulos-1.pdf"
-]
+# 2. CONFIGURACIÓN DE LAS FUENTES DE INFORMACIÓN (Búsqueda Dinámica y Recursiva)
+DIRECTORIO_BASE = "documentos_uti"
+lista_instructivos = []
+
+if os.path.exists(DIRECTORIO_BASE):
+    for root, dirs, files in os.walk(DIRECTORIO_BASE):
+        for file in files:
+            # Filtramos exclusivamente archivos con extensión .pdf, ignorando de forma segura .docx u otros
+            if file.lower().endswith('.pdf'):
+                lista_instructivos.append(os.path.join(root, file))
+    lista_instructivos.sort()
 
 # Optimizamos el almacenamiento leyendo el texto puro para evitar saturar la API con archivos binarios
 @st.cache_data
-def extraer_texto_base_conocimiento():
+def extraer_texto_base_conocimiento(archivos):
     texto_consolidado = ""
-    for nombre_archivo in lista_instructivos:
+    for nombre_archivo in archivos:
         if os.path.exists(nombre_archivo):
             try:
                 reader = PdfReader(nombre_archivo)
@@ -47,7 +53,7 @@ def extraer_texto_base_conocimiento():
                 st.error(f"⚠️ Error al leer {nombre_archivo}: {e}")
     return texto_consolidado
 
-base_conocimiento_texto = extraer_texto_base_conocimiento()
+base_conocimiento_texto = extraer_texto_base_conocimiento(lista_instructivos)
 
 # 3. INTERFAZ DE USUARIO (Frontend tipo Chat para el Estudiante)
 st.subheader("📋 Módulo de Consulta y Auditoría de Documentos")
@@ -64,7 +70,7 @@ if st.button("Ejecutar Auditoría Digital"):
     if not consulta_alumno:
         st.warning("⚠️ Por favor, ingresa una pregunta para iniciar el análisis.")
     elif not base_conocimiento_texto:
-        st.error("❌ Error: No se pudo extraer información de los archivos normativos base. Verifica que estén en la raíz del proyecto.")
+        st.error("❌ Error: No se pudo extraer información de los archivos normativos base. Verifica que la carpeta 'documentos_uti' exista y contenga archivos PDF válidos.")
     else:
         with st.spinner("Analizando documentos y normativas institucionales con Gemini 2.5 Flash..."):
             
