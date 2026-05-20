@@ -35,7 +35,7 @@ carpetas_opciones = {
     "🏛️ Modelos Educativos y Políticas": "PDF legal - pagina Indoamerica/Modelos educativos y Politicas",
     "⚖️ Normativa y Legislación Superior": "PDF legal - pagina Indoamerica/Normativa y Lesgislación Superior",
     "🤝 Protocolos y Bienestar": "PDF legal - pagina Indoamerica/Protocolos y Bienestar",
-    "📜 Reglamentos (Titulación y Académicos)": "PDF legal - pagina Indoamerica/Reglamentos (Titulacián y Académicos)",
+    "📜 Reglamentos (Titulacion y Academicos)": "PDF legal - pagina Indoamerica/Reglamentos (Titulación y Académicos)",
     "🎓 Plantillas y Estructuras de Tesis": "Plantillas y Estructuras de Tesis"
 }
 
