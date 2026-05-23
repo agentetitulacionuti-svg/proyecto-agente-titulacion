@@ -1,7 +1,7 @@
 # =====================================================================
 # INTERFAZ DE AUDITORÍA ACADÉMICA - FACULTAD DE INGENIERÍAS UTI
 # Desarrollado por: Alejandro Tituaña
-# Enfoque: Estabilización de Capas CSS y Corrección de NameError (Línea 4)
+# Enfoque: Estabilización de Capas CSS y Alta Disponibilidad Automática
 # Motor: Groq Cloud (llama-3.3-70b-versatile)
 # =====================================================================
 
@@ -10,7 +10,7 @@ from groq import Groq
 import os
 from pypdf import PdfReader
 
-# 1. CONFIGURACIÓN VISUAL DEL FRAMEWORK (Debe ir después de los imports)
+# 1. CONFIGURACIÓN VISUAL DEL FRAMEWORK (Debe ir estrictamente en primer lugar)
 st.set_page_config(
     page_title="Agente UTI - Auditoría Académica", 
     page_icon="🎓", 
@@ -18,43 +18,54 @@ st.set_page_config(
 )
 
 # =====================================================================
-# POKA-YOKE ESTÉTICO ULTRA-RESISTENTE: CONTROL TOTAL DE FONDO (CSS)
+# POKA-YOKE ESTÉTICO INDUSTRIAL: PALETA CORPORATIVA UTI (SIN ENLACES EXTERNOS)
 # =====================================================================
 st.markdown(
     """
     <style>
-    /* Forzamos el fondo con el logo en la raíz absoluta de la aplicación */
+    /* Fondo con degradado industrial usando los colores oficiales de la UTI */
     [data-testid="stAppViewContainer"] {
-        background-image: url("https://www.uti.edu.ec/wp-content/uploads/2018/06/Logotipo-Indoamerica.png");
-        background-repeat: no-repeat;
-        background-position: center 55%;
+        background: linear-gradient(135deg, #003366 0%, #002244 100%) !important;
         background-attachment: fixed;
-        background-size: 45%; /* Controla el tamaño del logo en pantalla */
     }
 
-    /* Volvemos totalmente transparentes las capas intermedias para que dejen ver el fondo */
+    /* Volvemos totalmente transparentes las capas intermedias */
     [data-testid="stHeader"], [data-testid="stApp"], .main {
         background-color: transparent !important;
     }
     
-    /* Contenedor principal donde flotan las cajas de texto y el título */
+    /* Contenedor principal: Tarjeta limpia de alto contraste */
     .block-container {
-        background-color: rgba(255, 255, 255, 0.95) !important; /* Blanco sólido al 95% para contraste óptimo */
-        padding: 40px !important;
-        border-radius: 12px;
-        box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.08);
-        margin-top: 40px;
+        background-color: rgba(255, 255, 255, 0.98) !important; /* Blanco limpio para lectura óptima */
+        padding: 50px !important;
+        border-radius: 16px;
+        box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.3);
+        margin-top: 50px;
     }
     
-    /* Estilización del botón con azul corporativo */
+    /* Títulos y textos principales en azul institucional */
+    h1 {
+        color: #003366 !important;
+        font-weight: 800 !important;
+    }
+    
+    /* Estilización del botón de ejecución de Ingeniería */
     .stButton>button {
         background-color: #003366 !important;
         color: white !important;
-        border-radius: 6px !important;
+        border-radius: 8px !important;
         width: 100%;
         font-weight: bold;
         border: none;
-        padding: 10px;
+        padding: 12px;
+        font-size: 16px;
+        transition: 0.3s ease;
+    }
+    
+    /* Efecto de respuesta al pasar el mouse por el botón (Feedback visual) */
+    .stButton>button:hover {
+        background-color: #002244 !important;
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.2);
     }
     </style>
     """,
@@ -165,29 +176,3 @@ if st.button("Ejecutar Consulta Inteligente"):
 
                 === BASE DE CONOCIMIENTO INSTITUCIONAL ===
                 {texto_base_reducido}
-                
-                === DOCUMENTO ADJUNTO DEL ESTUDIANTE ===
-                {texto_alumno}
-                ==========================================
-
-                Reglas operativas de control de calidad:
-                1. Responde de forma clara usando viñetas estructuradas y cita explícitamente el documento: {archivo_nombre}.
-                2. Si la respuesta exacta no se encuentra en el texto provisto, responde textualmente: "La información solicitada no consta en los instructivos digitales. Por favor, acérquese a la ventanilla de Secretaría."
-                3. No asumas, no inventes ni uses conocimiento externo.
-
-                Consulta del estudiante a procesar: {consulta_alumno}
-                """
-                
-                respuesta_final = client.chat.completions.create(
-                    model=MODELO_IA,
-                    messages=[{"role": "user", "content": prompt_maestro}],
-                    temperature=0.1
-                )
-                
-                # Despacho del resultado en interfaz limpia
-                st.markdown("### 📝 Veredicto del Agente UTI:")
-                st.info(respuesta_final.choices[0].message.content)
-                st.success("✓ Proceso de auditoría digital completado sin defectos de cuota.")
-
-            except Exception as e:
-                st.error(f"❌ Excepción operativa en el clúster de Groq: {e}")
