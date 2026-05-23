@@ -11,8 +11,12 @@ from pypdf import PdfReader
 
 st.set_page_config(page_title="Agente UTI - Blindado", page_icon="🎓", layout="centered")
 
-st.title("🎓 Asistente Virtual de Titulación - UTI")
-st.write("Dime tu duda académica y el sistema localizará automáticamente el reglamento correcto.")
+col1, col2 = st.columns([1, 4])
+with col1:
+    st.image("logo_uti.png", width=110)
+with col2:
+    st.title("Asistente Virtual de Titulación - UTI")
+    st.write("Dime tu duda académica y el sistema localizará automáticamente el reglamento correcto.")
 st.markdown("---")
 
 # 1. CONEXIÓN AL MOTOR DE GROQ
