@@ -1,7 +1,7 @@
 # =====================================================================
 # INTERFAZ DE AUDITORÍA ACADÉMICA - FACULTAD DE INGENIERÍAS UTI
 # Desarrollado por: Alejandro Tituaña
-# Enfoque: Estabilización de Capas CSS y Alta Disponibilidad Automática
+# Enfoque: Corrección de Indentación y Alineación de Cadenas de Texto (F-strings)
 # Motor: Groq Cloud (llama-3.3-70b-versatile)
 # =====================================================================
 
@@ -169,10 +169,32 @@ if st.button("Ejecutar Consulta Inteligente"):
                 # Panel de trazabilidad visual
                 st.caption(f"🔍 *Filtro de Carga Activo -> Archivo Seleccionado:* **{archivo_nombre}**")
 
-                # --- PASO 4: RAZONAMIENTO Y VEREDICTO FINAL ---
-                prompt_maestro = f"""
-                Actúas como el Agente Automatizado de Auditoría Académica de la Facultad de Ingenierías de la UTI.
-                Tu objetivo es responder a la consulta utilizando EXCLUSIVAMENTE el texto provisto.
+                # --- PASO 4: RAZONAMIENTO Y VEREDICTO FINAL (Indentación Reparada) ---
+                prompt_maestro = (
+                    f"Actúas como el Agente Automatizado de Auditoría Académica de la Facultad de Ingenierías de la UTI.\n"
+                    f"Tu objetivo es responder a la consulta utilizando EXCLUSIVAMENTE el texto provisto.\n\n"
+                    f"=== BASE DE CONOCIMIENTO INSTITUCIONAL ===\n"
+                    f"{texto_base_reducido}\n\n"
+                    f"=== DOCUMENTO ADJUNTO DEL ESTUDIANTE ===\n"
+                    f"{texto_alumno}\n"
+                    f"==========================================\n\n"
+                    f"Reglas operativas de control de calidad:\n"
+                    f"1. Responde de forma clara usando viñetas estructuradas y cita explícitamente el documento: {archivo_nombre}.\n"
+                    f"2. Si la respuesta exacta no se encuentra en el texto provisto, responde textualmente: \"La información solicitada no consta en los instructivos digitales. Por favor, acérquese a la ventanilla de Secretaría.\"\n"
+                    f"3. No asumas, no inventes ni uses conocimiento externo.\n\n"
+                    f"Consulta del estudiante a procesar: {consulta_alumno}"
+                )
 
-                === BASE DE CONOCIMIENTO INSTITUCIONAL ===
-                {texto_base_reducido}
+                respuesta_final = client.chat.completions.create(
+                    model=MODELO_IA,
+                    messages=[{"role": "user", "content": prompt_maestro}],
+                    temperature=0.1
+                )
+                
+                # Despacho del resultado en interfaz limpia
+                st.markdown("### 📝 Veredicto del Agente UTI:")
+                st.info(respuesta_final.choices[0].message.content)
+                st.success("✓ Proceso de auditoría digital completado sin defectos de cuota.")
+
+            except Exception as e:
+                st.error(f"❌ Excepción operativa en el clúster de Groq: {e}")
